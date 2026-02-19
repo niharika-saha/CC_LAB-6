@@ -3,29 +3,38 @@ pipeline {
 
     stages {
 
-        stage('Clone Repository') {
-            steps {
-                checkout scm
-            }
-        }
-
         stage('Build Backend Image') {
             steps {
-                script {
-                    docker.build("backend-image", "./backend")
-                }
+                sh 'docker build -t backend-app CC_LAB-6/backend'
             }
         }
 
-        stage('Pull NGINX Image') {
+        stage('Deploy Backends') {
             steps {
-                sh 'docker pull nginx'
+                sh '''
+                docker rm -f backend1 backend2 || true
+                docker run -d --name backend1 backend-app
+                docker run -d --name backend2 backend-app
+                '''
             }
         }
 
-        stage('Done') {
+        stage('Deploy NGINX') {
             steps {
-                echo 'Pipeline Completed Successfully!'
+                sh '''
+                docker rm -f nginx-lb || true
+                docker run -d \
+                    --name nginx-lb \
+                    -p 80:80 \
+                    -v $(pwd)/CC_LAB-6/nginx/nginx.conf:/etc/nginx/nginx.conf \
+                    nginx
+                '''
+            }
+        }
+
+        stage('Post Actions') {
+            steps {
+                echo 'Pipeline executed successfully. NGINX load balancer is running.'
             }
         }
     }
